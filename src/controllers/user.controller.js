@@ -3,6 +3,7 @@ import ApiError from "../utils/apiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
+import jwt from "jsonwebtoken";
 
 export const registerUser = asyncHandler(async function (req, res) {
   // get user details from frontend
@@ -172,3 +173,50 @@ async function generateAccessAndRefreshToken(userId) {
     );
   }
 }
+
+export const refreshAccessToken = asyncHandler(async function (req, res) {
+  const incomingRefreshToken =
+    req.cookies?.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "unauthorized request");
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    if (!decodedToken) {
+      throw new ApiError(401, "invalid refresh token");
+    }
+
+    const user = await User.findById(decodedToken._id);
+
+    if (!user) {
+      throw new ApiError(401, "invalid refresh token");
+    }
+
+    if (incomingRefreshToken !== user.refreshToken) {
+      throw new ApiError(401, "refresh token expired or used");
+    }
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
+    );
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", refreshToken, cookieOptions)
+      .json(new ApiResponse(200, { accessToken, refreshToken }, "Success"));
+  } catch (error) {
+    throw new ApiError(500, error.message || "internal server error");
+  }
+});

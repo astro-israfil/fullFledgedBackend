@@ -3,7 +3,7 @@ import ApiError from "../utils/apiError.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 
-export const varifyJWT = asyncHandler(async function (req, _, next) {
+export const verifyJWT = asyncHandler(async function (req, _, next) {
   try {
     const token =
       req.cookies?.accessToken ||
@@ -18,7 +18,6 @@ export const varifyJWT = asyncHandler(async function (req, _, next) {
       "-password -refreshToken"
     );
     if (!user) {
-      // TODO: discation;
       throw new ApiError(401, "Invalid access token");
     }
     req.uses = user;
